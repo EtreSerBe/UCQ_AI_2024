@@ -20,6 +20,13 @@ public class SB_Seek : MonoBehaviour
 
     public SteeringBehavior currentBehavior = SteeringBehavior.Seek;
 
+    // Bandera que determina si nuestro steering behavior activo debe detenerse al llegar al punto objetivo.
+    // es decir, usar el arrive steering behavior.
+    public bool useArrive = true;
+
+    // radio del área en que nuestro agente que use arrive va a empezar a reducir su velocidad.
+    public float slowAreaRadius = 5.0f;
+
     // Vector tridimensional para la posición del mouse en el mundo
     Vector3 mouseWorldPos = Vector3.zero;
 
@@ -194,10 +201,35 @@ public class SB_Seek : MonoBehaviour
         // queremos ir para esa dirección lo más rápido que se pueda.
         Vector3 desiredVelocity = desiredDirection * maxSpeed;
 
+        if (useArrive)
+        {
+            // Si vamos a usar arrive, puede que no querramos ir lo más rápido posible.
+            float speedPercentage = ArriveFunction(DistanceVector);
+            desiredVelocity *= speedPercentage;
+        }
+
         // La diferencia entre la velocidad que tenemos actualmente y la que queremos tener.
         Vector3 steeringForce = desiredVelocity - rb.velocity;
 
         return steeringForce;
+    }
+
+    private float ArriveFunction(Vector3 DistanceVector)
+    {
+        // te dice si el agente está a una distancia Menor que la del radio de la slowing area
+        // (área de reducción de velocidad)
+        // requisitos: posición del agente, radio del área, posición del objetivo 
+        // calcular la distancia entre mi posición y la posición del objetivo.
+        float Distance = DistanceVector.magnitude;
+        // usamos esa distancia y la comparamos con el radio del área.
+        if (Distance < slowAreaRadius)
+        {
+            // si la distancia es menor que el radio, Entonces en qué porcentage de velocidad
+            // debería ir mi agente
+            return Distance / slowAreaRadius;
+        }
+        // sino, que vaya lo más rápido que pueda.
+        return 1.0f;
     }
 
     private Vector3 Seek(Vector3 TargetPosition)

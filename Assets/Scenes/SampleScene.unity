@@ -579,9 +579,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 72c754c03e4717546b6267e720b9e61e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentBehavior: 3
-  maxSpeed: 1
-  maxSteeringForce: 1
+  currentBehavior: 1
+  useArrive: 1
+  slowAreaRadius: 5
+  maxSpeed: 5
+  maxSteeringForce: 10
 --- !u!54 &1301790715
 Rigidbody:
   m_ObjectHideFlags: 0
