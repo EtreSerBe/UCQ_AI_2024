@@ -5,15 +5,16 @@ using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 // En este script va a estar todo lo que tenga que ver con que el grafo funcione a un nivel básico.
-public class Node { 
- 
+public class Node
+{
+
     public string ID;
     // Una que no me sabía yo de Unity C#: Las structs no pueden tener objetos de su propia struct, 
     // pero las classes sí. Probablemente se debe a que las Classes son siempre referencias (punteros) en C#.
     public Node parent;
 
-    public Node(string in_Id) 
-    { 
+    public Node(string in_Id)
+    {
         ID = in_Id;
         parent = null;
     }
@@ -37,12 +38,13 @@ public class Node {
     // !
 }
 
-public struct Edge {
+public struct Edge
+{
     public Node a;
     public Node b;
 
     public Edge(Node in_a, Node in_b)
-    { 
+    {
         a = in_a;
         b = in_b;
     }
@@ -52,9 +54,9 @@ public struct Edge {
 
 
 public enum NodeState
-{ 
+{
     Unknown = 0,
-    Open, 
+    Open,
     Closed,
     MAX
 }
@@ -71,6 +73,20 @@ public class BaseGraph : MonoBehaviour
     public Dictionary<Node, NodeState> NodeStateDict = new Dictionary<Node, NodeState>();
     // La lista cerrada nos permite guardar a los nodos que ya terminamos de explor
     // es decir, en cuáles ya no hay nada más que hacer.
+
+
+    // 1) Necesitamos que sí respete el orden, específicamente que el último elemento en añadirse sea el primero en salir
+    // 2) Tenemos que poder checar si el nodo a meter YA está en la lista abierta.
+    // 3) Que agregar y quitar elementos de la estructura de datos sea rápido.
+    public Stack<Node> OpenList = new Stack<Node>();
+    // public List<Node> ClosedList = new List<Node>();
+    // public Stack<Node> ClosedList = new Stack<Node>();
+
+    // Las propiedades que queremos de la estructura de datos para nuestra lista cerrada son:
+    // 1) No necesitamos que respete el orden en que se añadieron los nodos
+    // 2) Tiene que agregar nodos lo más rápido posible
+    // 3) Tiene que poder checar si contiene o no a un nodo dado rápidamente.
+    public HashSet<Node> ClosedSetList = new HashSet<Node>();
 
     private void GrafoDePrueba()
     {
@@ -112,7 +128,7 @@ public class BaseGraph : MonoBehaviour
 
         Edge BC = new Edge(B, C);
         Edge BD = new Edge(B, D);
-       
+
         Edge EF = new Edge(E, F);
         Edge EG = new Edge(E, G);
         Edge EH = new Edge(E, H);
@@ -131,15 +147,15 @@ public class BaseGraph : MonoBehaviour
 
         // Mi prueba será que inicie en H y me diga si puede llegar a D.
         NodeStateDict[H] = NodeState.Open;
-        bool pathExists = DepthFirstSearch(H, D);
+        bool pathExists = ItDepthFirstSearch(H, D);
         if (pathExists)
-        {   
+        {
             print("Sí hay un camino de H a D.");
             List<Node> pathToGoal = new List<Node>();
             Node currentNode = D;
             while (currentNode != null)
-            { 
-                pathToGoal.Add(currentNode); 
+            {
+                pathToGoal.Add(currentNode);
                 currentNode = currentNode.parent;
             }
             foreach (Node node in pathToGoal)
@@ -151,28 +167,85 @@ public class BaseGraph : MonoBehaviour
             print("No hay camino de H a D.");
     }
 
-    //public bool ItDepthFirstSearch(Node Origin, Node Target)
-    //{
-    //    NodeStateDict[Origin] = NodeState.Open;
+    public bool ItDepthFirstSearch(Node Origin, Node Target)
+    {
+        // empezamos en el nodo Origen.
+        // Ponemos al nodo origen en la lista abierta.
+        OpenList.Push(Origin);
 
-    //    Stack<Node>
-    //    // Desde ese nodo
-    //    while()
+        Node currentNode = Origin;
 
+        // Otra posibilidad es while(currentNode != null),
+        while (OpenList.Count != 0)  // Mientras haya otros nodos por visitar, sigue ejecutando el algoritmo.
+        {
+            // ya que sabemos cual es el nodo actual, podemos empezar a meter a sus vecinos a la lista abierta.
 
-    //    return false;
-    //}
+            // Necesitamos quitar elementos de la lista abierta en algún punto de este ciclo while.
+            // El truco está en saber dónde.
+            // Puede que en Breadth first search no sea igual la ubicación!
+
+            // Tenemos que tener una forma de saber quiénes son los vecinos del nodo actual.
+            // Hay que ver cuál de las aristas está conectada con nuestro nodo CurrentNode.
+            // Lo hicimos a través del método FindNeighbors.
+            List<Edge> currentNeighbors = FindNeighbors(currentNode);
+            // Si esta bandera queda true al terminar el foreach de las aristas, mete a currentNode a la lista cerrada.
+            bool sendToClosedList = true;
+            // Visita a cada uno de ellos, hasta que se acaben o hasta que encontremos el objetivo.
+            foreach (Edge e in currentNeighbors)
+            {
+                // Checamos cuál de los dos nodos que esta arista conecta no es el CurrentNode.
+                Node NonCurrentNode = currentNode != e.a ? e.a : e.b;
+                // Primero checamos si ya está en la lista abierta, y si lo está, no mandamos a llamar el algoritmo.
+                // también tenemos que checar que no esté en la lista cerrada!
+                if (OpenList.Contains(NonCurrentNode) || ClosedSetList.Contains(NonCurrentNode))
+                    continue;
+                if (NonCurrentNode == Target)
+                {
+                    // Entonces ya tenemos una ruta de origin a target.
+                    // nada más le ponemos que target.parent es igual a currentNode y listo, podemos salir de la función.
+                    NonCurrentNode.parent = currentNode;
+                    return true;
+                }
+                else
+                {
+                    // Si no, lo agregamos a lista abierta.
+                    OpenList.Push(NonCurrentNode);
+                    // Cuando tú (Nodo Current) metes a otro nodo a la lista abierta, pones a currentNode como su parent node.
+                    NonCurrentNode.parent = currentNode;
+                    // En esta versión iterativa, cuando currentNode mete a alguien más a la lista abierta, 
+                    // ese nuevo nodo se convierte en currentNode, y vuelves a empezar el ciclo.
+                    sendToClosedList = false;
+                    currentNode = NonCurrentNode;
+                    break; // Esto hace que el ciclo vaya a la siguiente iteración, sin llegar al código debajo de este continue.
+                }
+            }
+
+            // Cuando el currentNode no mete a nadie a la lista abierta, quiere decir que ya visitó a todos sus vecinos
+            // y por lo tanto, él se sale de la lista abierta, y se mete a la lista cerrada.
+            if (sendToClosedList)
+            {
+                Node poppedNode = OpenList.Pop();
+                ClosedSetList.Add(poppedNode);
+                currentNode = OpenList.Peek(); //Peek es "dame el elemento de hasta arriba pero sin sacarlo de la pila".
+            }
+            // el else ya no es necesario, porque ya nos encargamos justo antes del "break;" del foreach.
+
+        }
+
+        // no hay camino de origin a target.
+        return false;
+    }
 
 
     public bool DepthFirstSearch(Node Current, Node Target)
     {
         // Cuando tú te paras en un nodo, lo primero que tienes que hacer es si ya está en la lista cerrada.
         // Si ya está en la cerrada, no hay nada más que hacer.
-        if(NodeStateDict[Current] == NodeState.Closed)
+        if (NodeStateDict[Current] == NodeState.Closed)
             return false;
 
         // Si el nodo donde estoy parado ahorita no es el nodo al que quiero llegar, entonces todavía no acabo.
-        if(Current == Target)
+        if (Current == Target)
             return true;
         // SI no son iguales, tenemos que seguir buscando.
         // Primero vamos al primer vecino de este nodo.
@@ -182,14 +255,14 @@ public class BaseGraph : MonoBehaviour
         // Vamos a hacer un método que nos diga con quién está conectado el nodo X.
         List<Edge> currentNeighbors = FindNeighbors(Current);
         // Visita a cada uno de ellos, hasta que se acaben o hasta que encontremos el objetivo.
-        foreach(Edge e in currentNeighbors) 
+        foreach (Edge e in currentNeighbors)
         {
             Node NonCurrentNode = Current != e.a ? e.a : e.b;
             // Primero checamos si ya está en la lista abierta, y si lo está, no mandamos a llamar el algoritmo.
             if (NodeStateDict[NonCurrentNode] == NodeState.Open)
                 continue;
             else
-            { 
+            {
                 // Si no, lo ponemos como que ya está en la lista abierta.
                 NodeStateDict[NonCurrentNode] = NodeState.Open;
                 // Cuando tú (Nodo Current) metes a otro nodo a la lista abierta, te pones como su parent node.
@@ -209,15 +282,15 @@ public class BaseGraph : MonoBehaviour
 
         // Cuando ninguno de estos vecinos nos llevó al objetivo, regresamos False.
         return false;
-    
+
     }
 
     // Método que nos dice quienes son los vecinos de un nodo dado.
     public List<Edge> FindNeighbors(Node in_node)
-    { 
+    {
         List<Edge> out_list = new List<Edge>(); // empieza vacío.
         // Checar todas las aristas que hay, y meter a este out_vector todas las aristas que referencien al nodo dado.
-        foreach (Edge myEdge in Edges) 
+        foreach (Edge myEdge in Edges)
         {
             if (myEdge.a == in_node || myEdge.b == in_node)
             {
@@ -237,6 +310,6 @@ public class BaseGraph : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        
+
     }
 }
