@@ -16,7 +16,7 @@ using UnityEngine;
     // public Dictionary<string, NaiveFSMState> _StatesDict;
 
     // Start is called before the first frame update
-    void Start()
+    public virtual void Start()
     {
         // Una FSM siempre inicia en su estado inicial.
         _CurrentState = GetInitialState();
@@ -39,6 +39,7 @@ using UnityEngine;
     // Update is called once per frame
     void Update()
     {
+        // Mayormente solo debe importar lo que hace el estado actual, y nada de otros estados de la máquina.
         if(_CurrentState != null)
             _CurrentState.Update();
     }
@@ -46,7 +47,7 @@ using UnityEngine;
     // Lo mismo va a pasar con el FixedUpdate.
 
     // La función para cambiar entre estados.
-    protected void ChangeState(NaiveFSMState newState)
+    public void ChangeState(NaiveFSMState newState)
     {
         // Manda a llamar el Exit() del estado actual.
         _CurrentState.Exit();
