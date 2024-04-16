@@ -4,7 +4,8 @@ using UnityEngine;
 
 public class NaivePatrolState : NaiveFSMState
 {
-    Vector3 InitialPatrollingPosition;
+    private PatrolAgentFSM PatrolFSMRef = null;
+
     // Variables No-exclusivas del estado
     // Cono de visión
     // Las dejé comentadas como ejemplo de que son las no-exclusivas del estado, y que me las llevé a la máquina de estados.
@@ -12,20 +13,26 @@ public class NaivePatrolState : NaiveFSMState
     //public float VisionDistance;
     //public bool DetectedPlayer;
 
+    private float VisionAngle;
+    private float VisionDistance;
 
     // Variables Exclusivas de este estado.
     // 
-    public float RotationAngle;
-    public float TimeBeforeRotating;
-    public float AccumulatedTimeBeforeRotating;
-    public float TimeDetectingPlayerBeforeEnteringAlert;
-    public float AccumulatedTimeDetectingPlayerBeforeEnteringAlert;
+    private float RotationAngle;
+    private float TimeBeforeRotating;
+    private float AccumulatedTimeBeforeRotating;
+    private float TimeDetectingPlayerBeforeEnteringAlert;
+    private float AccumulatedTimeDetectingPlayerBeforeEnteringAlert;
 
-    public void Init(float in_RotationAngle, float in_TimeBeforeRotating, float in_TimeDetectingPlayerBeforeEnteringAlert)
+    public void Init(float in_VisionDistance, float in_VisionAngle, float in_RotationAngle, 
+        float in_TimeBeforeRotating, float in_TimeDetectingPlayerBeforeEnteringAlert)
     { 
         RotationAngle = in_RotationAngle;
         TimeBeforeRotating = in_TimeBeforeRotating;
         TimeDetectingPlayerBeforeEnteringAlert = in_TimeDetectingPlayerBeforeEnteringAlert;
+        // Estas dos de aquí las sacamos de la FSM
+        VisionAngle = in_VisionAngle;
+        VisionDistance = in_VisionDistance;
     }
 
     // Ojo: no hagan esto, porque conlleva a situaciones molestas y propensas a errores humanos.
@@ -36,6 +43,7 @@ public class NaivePatrolState : NaiveFSMState
     {
         Name = "Patrol";
         _FSM = FSM;
+        PatrolFSMRef = ((PatrolAgentFSM)_FSM);
     }
 
 
@@ -53,12 +61,11 @@ public class NaivePatrolState : NaiveFSMState
     // Update is called once per frame
     public override void Update()
     {
-        Debug.Log("Update del estado patrullaje.");
+        // Debug.Log("Update del estado patrullaje.");
 
         // Detectar al infiltrador
-
         // Lo detectamos?
-        if (Input.GetKey(KeyCode.W))  // Esta va a ser mi "cono de visión". Si se aprieta la tecla W, sí lo está viendo.
+        if (CheckFOV())
         {
             // Si la función del cono de visión nos regresa verdadero
             // Acumulamos tiempo
@@ -71,27 +78,25 @@ public class NaivePatrolState : NaiveFSMState
                 // (PatrolAgentFSM)_FSM -> casteamos la máquina de estados base, al tipo específico de la FSM que es nuestra dueña.
                 // esto nos permite acceder a las variables que tiene esa clase específica, en este caso, al estado de Alerta al que
                 // queremos pasar, que lo obtenemos a través de "AlertStateRef".
-                PatrolAgentFSM SpecificFSM = (PatrolAgentFSM)_FSM;
-                NaiveAlertState AlertStateInstance = SpecificFSM.AlertStateRef;
+                NaiveAlertState AlertStateInstance = PatrolFSMRef.AlertStateRef;
                 _FSM.ChangeState(AlertStateInstance);
                 return; // Damos return siempre después del change state, para evitar que cualquier otra cosa 
                 // del update se fuera a ejecutar.
             }
         }
-        // Usaríamos nuestra función del cono de visión
-        // Sí, entonces:
 
-
-
-
-        // Para esto, usaríamos la variable que declaramos "TimeDetectingPlayerBeforeEnteringAlert"
-        // Aquí es donde le pediríamos a la máquina de estados que nos mande al estado de Alerta.
-        // _FSM.ChangeState(_AlertState);
+        // Dónde pondríamos la parte de rotar al patrullero cada cierto tiempo?
 
     }
 
     // Aquí estamos omitiendo a propósito la función Exit()
     // solo para demostrar que podemos hacerlo.
+
+    private bool CheckFOV()
+    {
+        // únicamente mandamos a llamar la función de la FSM pero con nuestros parámetros específicos de este estado.
+        return PatrolFSMRef.CheckFieldOfVision(VisionDistance, VisionAngle);
+    }
 }
 
 
